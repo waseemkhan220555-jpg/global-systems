@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import ScrollToTop from "./components/ScrollToTop"; // Import it
+import ScrollToTop from "./components/ScrollToTop";
 import Home from "./pages/Home";
 import Service from "./pages/Service";
 import Product from "./pages/Product";
@@ -10,7 +10,7 @@ import Contact from "./pages/Contact";
 function App() {
   return (
     <BrowserRouter>
-      <ScrollToTop /> {/* Add it here */}
+      <ScrollToTop />
       <Navbar />
       <main className="pt-[78px]">
         <Routes>
