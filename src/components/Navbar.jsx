@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"; // <-- Import Link
+import { Link } from "react-router-dom";
 import { Phone, MessageCircle, Wrench } from "lucide-react";
 import logo from "../assets/logo.jpg";
 
@@ -31,7 +31,7 @@ function Navbar() {
         <nav className="hidden items-center gap-8 md:flex">
           <Link
             to="/"
-            className="font-semibold text-blue-600 transition hover:text-blue-700"
+            className="font-semibold text-slate-700 transition hover:text-blue-600"
           >
             Home
           </Link>
