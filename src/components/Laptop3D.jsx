@@ -31,7 +31,7 @@ function LaptopModel() {
         <Center>
           <primitive
             object={scene}
-            // Scale down to 1.1 on mobile screens, 1.5 on larger screens
+            // Scale down on mobile screens, larger on desktops
             scale={window.innerWidth < 768 ? 1.1 : 1.5}
             position={[0, -0.3, 0]}
           />
@@ -51,7 +51,6 @@ function LoadingLaptop() {
 
 export default function Laptop3D() {
   return (
-    {/* Responsive height: smaller on mobile (h-[320px]), full height on desktop (md:h-[520px]) */}
     <div className="h-[320px] md:h-[520px] w-full">
       <Canvas
         shadows
