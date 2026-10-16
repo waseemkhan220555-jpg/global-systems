@@ -1,4 +1,3 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import ScrollToTop from "./components/ScrollToTop";
 import Home from "./pages/Home";
@@ -6,10 +5,11 @@ import Service from "./pages/Service";
 import Product from "./pages/Product";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import { Routes, Route } from "react-router-dom";
 
 function App() {
   return (
-    <BrowserRouter>
+    <>
       <ScrollToTop />
       <Navbar />
       <main className="pt-[78px]">
@@ -21,7 +21,7 @@ function App() {
           <Route path="/contact" element={<Contact />} />
         </Routes>
       </main>
-    </BrowserRouter>
+    </>
   );
 }
 
