@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"; // <-- Import Link
 import { Phone, MessageCircle, Wrench } from "lucide-react";
 import logo from "../assets/logo.jpg";
 
@@ -7,7 +8,7 @@ function Navbar() {
       <div className="mx-auto flex h-[78px] max-w-7xl items-center justify-between px-5 md:px-8">
 
         {/* BRAND */}
-        <a href="/" className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3">
           <img
             src={logo}
             alt="Global Systems"
@@ -24,49 +25,48 @@ function Navbar() {
               COMPLETE SOLUTION FOR COMPUTERS
             </p>
           </div>
-        </a>
+        </Link>
 
         {/* DESKTOP NAV */}
         <nav className="hidden items-center gap-8 md:flex">
-          <a
-            href="/"
+          <Link
+            to="/"
             className="font-semibold text-blue-600 transition hover:text-blue-700"
           >
             Home
-          </a>
+          </Link>
 
-          <a
-            href="/services"
+          <Link
+            to="/services"
             className="font-medium text-slate-600 transition hover:text-blue-600"
           >
             Services
-          </a>
+          </Link>
 
-          <a
-            href="/products"
+          <Link
+            to="/products"
             className="font-medium text-slate-600 transition hover:text-blue-600"
           >
             Products
-          </a>
+          </Link>
 
-          <a
-            href="/about"
+          <Link
+            to="/about"
             className="font-medium text-slate-600 transition hover:text-blue-600"
           >
             About
-          </a>
+          </Link>
 
-          <a
-            href="/contact"
+          <Link
+            to="/contact"
             className="font-medium text-slate-600 transition hover:text-blue-600"
           >
             Contact
-          </a>
+          </Link>
         </nav>
 
         {/* ACTIONS */}
         <div className="hidden items-center gap-2 lg:flex">
-          {/* BOOK SERVICE BUTTON */}
           <a
             href="/#booking"
             className="flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
