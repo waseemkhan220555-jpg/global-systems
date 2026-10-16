@@ -1,43 +1,23 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
-import Services from "./pages/Services";   // Note the 's'
-import Products from "./pages/Products";   // Note the 's'
+import Services from "./pages/Services";
+import Products from "./pages/Products";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 
 function App() {
-  const path = window.location.pathname.replace(/\/+$/, "") || "/";
-
-  let page;
-
-  switch (path) {
-    case "/services":
-      page = <Services />;
-      break;
-
-    case "/products":
-      page = <Products />;
-      break;
-
-    case "/about":
-      page = <About />;
-      break;
-
-    case "/contact":
-      page = <Contact />;
-      break;
-
-    case "/":
-    default:
-      page = <Home />;
-      break;
-  }
-
   return (
-    <>
+    <BrowserRouter>
       <Navbar />
-      {page}
-    </>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

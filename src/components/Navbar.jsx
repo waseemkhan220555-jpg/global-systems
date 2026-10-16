@@ -67,13 +67,13 @@ function Navbar() {
 
         {/* ACTIONS */}
         <div className="hidden items-center gap-2 lg:flex">
-          <a
-            href="/#booking"
+          <Link
+            to="/#booking"
             className="flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
           >
             <Wrench size={16} />
             Book Service
-          </a>
+          </Link>
 
           <a
             href="tel:+919448146841"
@@ -96,13 +96,13 @@ function Navbar() {
 
         {/* MOBILE ACTIONS */}
         <div className="flex items-center gap-2 md:hidden">
-          <a
-            href="/#booking"
+          <Link
+            to="/#booking"
             className="flex h-10 items-center gap-1.5 rounded-full bg-blue-600 px-3.5 text-xs font-bold text-white shadow-lg"
           >
             <Wrench size={14} />
             Book
-          </a>
+          </Link>
 
           <a
             href="tel:+919448146841"
