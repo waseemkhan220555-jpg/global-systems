@@ -31,7 +31,8 @@ function LaptopModel() {
         <Center>
           <primitive
             object={scene}
-            scale={1.5}
+            // Scale down to 1.1 on mobile screens, 1.5 on larger screens
+            scale={window.innerWidth < 768 ? 1.1 : 1.5}
             position={[0, -0.3, 0]}
           />
         </Center>
@@ -50,11 +51,11 @@ function LoadingLaptop() {
 
 export default function Laptop3D() {
   return (
-    <div className="h-[520px] w-full">
+    {/* Responsive height: smaller on mobile (h-[320px]), full height on desktop (md:h-[520px]) */}
+    <div className="h-[320px] md:h-[520px] w-full">
       <Canvas
         shadows
         dpr={[1, 2]}
-        // Explicitly handle resize and container bounds so it catches framer-motion layout shifts
         resize={{ polyfill: ResizeObserver, debounce: 0 }}
         camera={{
           position: [0, 0.5, 5],
