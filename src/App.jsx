@@ -1,14 +1,14 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
-import Service from "./pages/Service";      // Match singular filename
-import Product from "./pages/Product";      // Match singular filename
+import Service from "./pages/Service";
+import Product from "./pages/Product";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 
 function App() {
   return (
-    <BrowserRouter>
+    <>
       <Navbar />
       <main className="pt-[78px]">
         <Routes>
@@ -19,7 +19,7 @@ function App() {
           <Route path="/contact" element={<Contact />} />
         </Routes>
       </main>
-    </BrowserRouter>
+    </>
   );
 }
 
