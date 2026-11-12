@@ -42,7 +42,7 @@ function Home() {
 
     try {
       // 1. Send data to your Node.js/Express backend
-      const response = await fetch("http://localhost:5000/api/inquiries", {
+      const response = await fetch("/api/inquiries", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

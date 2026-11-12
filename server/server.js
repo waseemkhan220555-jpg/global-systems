@@ -763,30 +763,40 @@ app.use((req, res) => {
 // SERVER START
 // ======================================
 
-if (!process.env.MONGO_URI) {
-  console.error("MONGO_URI is missing from .env");
-  process.exit(1);
-}
+// ======================================
+// SERVER START / VERCEL EXPORT
+// ======================================
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected successfully!");
+// Export Express app for Vercel
+module.exports = app;
 
-    app.listen(PORT, () => {
-      console.log(
-        `Global Systems server running on port ${PORT}`
+// Run normally when starting locally
+if (require.main === module) {
+  if (!process.env.MONGO_URI) {
+    console.error("MONGO_URI is missing from .env");
+    process.exit(1);
+  }
+
+  mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => {
+      console.log("MongoDB connected successfully!");
+
+      app.listen(PORT, () => {
+        console.log(
+          `Global Systems server running on port ${PORT}`
+        );
+
+        console.log("Payment: PhonePe / UPI QR + COD");
+        console.log("Admin authentication: Enabled");
+      });
+    })
+    .catch((error) => {
+      console.error(
+        "MongoDB connection failed:",
+        error.message
       );
 
-      console.log("Payment: PhonePe / UPI QR + COD");
-      console.log("Admin authentication: Enabled");
+      process.exit(1);
     });
-  })
-  .catch((error) => {
-    console.error(
-      "MongoDB connection failed:",
-      error.message
-    );
-
-    process.exit(1);
-  });
+}

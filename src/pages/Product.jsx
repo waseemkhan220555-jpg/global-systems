@@ -24,7 +24,7 @@ import {
 // ======================================
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_API_URL || "/api";
 
 const UPI_ID = "9483284457@axl";
 const UPI_NAME = "Global Systems";
