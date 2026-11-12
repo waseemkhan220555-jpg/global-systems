@@ -1,4 +1,7 @@
-import { motion } from "framer-motion";
+
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
 import {
   Laptop,
   HardDrive,
@@ -10,246 +13,465 @@ import {
   BatteryCharging,
   ShoppingBag,
   ArrowRight,
+  X,
+  CheckCircle,
+  Smartphone,
+  QrCode,
 } from "lucide-react";
 
-import jiobook from "../assets/products/jiobook.jpg";
-import lenovo from "../assets/products/lenovo.jpg";
-import ram from "../assets/products/ram.jpg";
-import ssd from "../assets/products/ssd.jpg";
-import hdd from "../assets/products/hdd.jpg";
-import mouse from "../assets/products/mouse.jpg";
-import keyboard from "../assets/products/keyboard.jpg";
-import printer from "../assets/products/printer.jpg";
-import cctv from "../assets/products/cctv.jpg";
-import ups from "../assets/products/ups.jpg";
+// ======================================
+// API CONFIGURATION
+// ======================================
 
-const products = [
-  {
-    image: jiobook,
-    icon: Laptop,
-    category: "Laptop",
-    name: "JioBook 11",
-    price: "₹10,990",
-    description:
-      "Compact laptop for everyday computing, study and basic office work.",
-  },
-  {
-    image: lenovo,
-    icon: Laptop,
-    category: "Laptop",
-    name: "Lenovo IdeaPad Slim 3",
-    price: "₹39,499",
-    description:
-      "Slim everyday laptop suitable for office, study and professional use.",
-  },
-  {
-    image: ram,
-    icon: MemoryStick,
-    category: "RAM",
-    name: "Patriot 16GB DDR4 RAM",
-    price: "₹12,099",
-    description:
-      "16GB DDR4 memory for compatible desktop and laptop systems.",
-  },
-  {
-    image: ram,
-    icon: MemoryStick,
-    category: "RAM",
-    name: "EVM 16GB DDR4 RAM",
-    price: "₹8,899",
-    description:
-      "High-capacity DDR4 memory for compatible computer systems.",
-  },
-  {
-    image: ssd,
-    icon: HardDrive,
-    category: "SSD",
-    name: "Zebronics 512GB SSD",
-    price: "₹5,999",
-    description:
-      "512GB solid-state storage for faster everyday computing.",
-  },
-  {
-    image: ssd,
-    icon: HardDrive,
-    category: "SSD",
-    name: "FOXIN NVMe SSD",
-    price: "₹7,999",
-    description:
-      "Fast NVMe storage for compatible desktops and laptops.",
-  },
-  {
-    image: hdd,
-    icon: HardDrive,
-    category: "Hard Disk",
-    name: "WD 2TB External HDD",
-    price: "Reference Price",
-    description:
-      "Portable external storage for backups, files and media.",
-  },
-  {
-    image: mouse,
-    icon: Mouse,
-    category: "Mouse",
-    name: "Dell MS116 Mouse",
-    price: "₹800",
-    description:
-      "Simple and reliable wired mouse for everyday computer use.",
-  },
-  {
-    image: keyboard,
-    icon: Keyboard,
-    category: "Keyboard",
-    name: "Portronics Bubble 3.0 Keyboard",
-    price: "₹879",
-    description:
-      "Comfortable keyboard for home, office and everyday computing.",
-  },
-  {
-    image: keyboard,
-    icon: Keyboard,
-    category: "Keyboard",
-    name: "Frontech Keyboard",
-    price: "₹269",
-    description:
-      "Affordable keyboard for everyday desktop requirements.",
-  },
-  {
-    image: printer,
-    icon: Printer,
-    category: "Printer",
-    name: "Canon Pixma Printer",
-    price: "Reference Price",
-    description:
-      "Compact printing solution for home and office requirements.",
-  },
-  {
-    image: printer,
-    icon: Printer,
-    category: "Printer",
-    name: "HP DeskJet Printer",
-    price: "Reference Price",
-    description:
-      "Practical printer solution for everyday document printing.",
-  },
-  {
-    image: cctv,
-    icon: Camera,
-    category: "CCTV",
-    name: "CP Plus CCTV Combo",
-    price: "₹6,960",
-    description:
-      "Security camera solution for homes, offices and businesses.",
-  },
-  {
-    image: cctv,
-    icon: Camera,
-    category: "CCTV",
-    name: "2MP CCTV Camera",
-    price: "₹754",
-    description:
-      "Affordable CCTV camera for basic security requirements.",
-  },
-  {
-    image: ups,
-    icon: BatteryCharging,
-    category: "UPS",
-    name: "UPS Protector 725",
-    price: "₹2,543",
-    description:
-      "Power backup solution for computers and electronic equipment.",
-  },
-];
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-function Product() {
+const UPI_ID = "9483284457@axl";
+const UPI_NAME = "Global Systems";
+const WHATSAPP_NUMBER = "919448146841";
+
+// ======================================
+// CATEGORY ICONS
+// ======================================
+
+const getCategoryIcon = (category) => {
+  switch (category?.toLowerCase()) {
+    case "laptop":
+      return Laptop;
+    case "ram":
+      return MemoryStick;
+    case "ssd":
+    case "hard disk":
+      return HardDrive;
+    case "mouse":
+      return Mouse;
+    case "keyboard":
+      return Keyboard;
+    case "printer":
+      return Printer;
+    case "cctv":
+      return Camera;
+    case "ups":
+      return BatteryCharging;
+    default:
+      return ShoppingBag;
+  }
+};
+
+// ======================================
+// IMAGE URL HELPER
+// ======================================
+
+const getImageUrl = (image) => {
+  if (!image) return "";
+
+  if (
+    image.startsWith("http://") ||
+    image.startsWith("https://")
+  ) {
+    return image;
+  }
+
+  return `${window.location.origin}/${image.replace(/^\/+/, "")}`;
+};
+
+// ======================================
+// PRODUCT IMAGE COMPONENT
+// ======================================
+
+function ProductImage({ product }) {
+  const Icon = getCategoryIcon(product.category);
+  const [imageError, setImageError] = useState(false);
+
+  const imageUrl = getImageUrl(product.image);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [imageUrl]);
+
+  return (
+    <div className="relative flex h-56 items-center justify-center overflow-hidden bg-slate-50">
+      {imageUrl && !imageError ? (
+        <img
+          src={imageUrl}
+          alt={product.name}
+          loading="lazy"
+          onError={() => setImageError(true)}
+          className="h-full w-full object-contain p-6 transition duration-300 group-hover:scale-105"
+        />
+      ) : (
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+          <Icon size={40} />
+        </div>
+      )}
+
+      <div className="absolute left-5 top-5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-blue-700 shadow">
+        {product.category || "General"}
+      </div>
+    </div>
+  );
+}
+
+// ======================================
+// MAIN PRODUCT COMPONENT
+// ======================================
+
+export default function Product() {
+  // PRODUCTS
+
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // SELECTED PRODUCT
+
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // CUSTOMER DETAILS
+
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [pincode, setPincode] = useState("");
+
+  // PAYMENT
+
+  const [paymentMethod, setPaymentMethod] = useState("COD");
+
+  // ORDER STATUS
+
+  const [submitting, setSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [orderSaved, setOrderSaved] = useState(false);
+
+  // UPI DETAILS
+
+  const [upiPaymentUrl, setUpiPaymentUrl] = useState("");
+  const [upiQrUrl, setUpiQrUrl] = useState("");
+  const [savedOrderId, setSavedOrderId] = useState("");
+
+  // ======================================
+  // FETCH PRODUCTS FROM MONGODB
+  // ======================================
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(`${API_URL}/products`);
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch products");
+        }
+
+        const data = await response.json();
+
+        setProducts(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Product fetching error:", err);
+        setError("Could not load products. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // ======================================
+  // WHATSAPP ENQUIRY
+  // ======================================
+
   const enquire = (productName) => {
     const message = `Hello Global Systems, I am interested in ${productName}. Please share the current availability and price.`;
 
     window.open(
-      `https://wa.me/919448146841?text=${encodeURIComponent(message)}`,
-      "_blank"
+      `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer"
     );
   };
+
+  // ======================================
+  // RESET CHECKOUT
+  // ======================================
+
+  const resetCheckout = () => {
+    setSelectedProduct(null);
+
+    setCustomerName("");
+    setPhone("");
+    setAddress("");
+    setPincode("");
+
+    setPaymentMethod("COD");
+
+    setOrderSuccess(false);
+    setOrderSaved(false);
+    setSubmitting(false);
+
+    setUpiPaymentUrl("");
+    setUpiQrUrl("");
+    setSavedOrderId("");
+  };
+
+  // ======================================
+  // SAVE ORDER TO DATABASE
+  // ======================================
+
+  const saveOrderToDB = async (
+    paymentStatus,
+    transactionId = ""
+  ) => {
+    if (!selectedProduct) {
+      throw new Error("No product selected");
+    }
+
+    const orderId = `ORD-${Date.now()}`;
+
+    const productPrice = Number(selectedProduct.basePrice);
+
+    if (!Number.isFinite(productPrice) || productPrice <= 0) {
+      throw new Error("Invalid product base price");
+    }
+
+    // IMPORTANT:
+    // Backend enum accepts COD, UPI_QR, RAZORPAY.
+    // Therefore convert frontend UPI to UPI_QR.
+
+    const orderPaymentMethod =
+      paymentMethod === "UPI" ? "UPI_QR" : "COD";
+
+    const orderData = {
+      orderId,
+
+      customer: {
+        name: customerName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        pincode: pincode.trim(),
+      },
+
+      items: [
+        {
+          productId: selectedProduct._id,
+          name: selectedProduct.name,
+          price: productPrice,
+          quantity: 1,
+        },
+      ],
+
+      totalAmount: productPrice,
+
+      paymentMethod: orderPaymentMethod,
+
+      paymentStatus,
+
+      ...(transactionId && {
+        paymentTxnId: transactionId,
+      }),
+    };
+
+    console.log("Sending order:", orderData);
+
+    const response = await fetch(`${API_URL}/orders`, {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify(orderData),
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || result.success === false) {
+      console.error(
+        "ORDER ERROR DETAILS:",
+        JSON.stringify(result, null, 2)
+      );
+
+      throw new Error(
+        result.error ||
+        result.message ||
+        "Failed to save order"
+      );
+    }
+
+    setSavedOrderId(orderId);
+    setOrderSaved(true);
+
+    // ======================================
+    // WHATSAPP ORDER NOTIFICATION
+    // ======================================
+
+    const message = `
+🛍️ NEW ORDER - GLOBAL SYSTEMS
+
+Order ID: ${orderId}
+
+Product: ${selectedProduct.name}
+
+Base Price: ₹${productPrice}
+
+Payment Method: ${orderPaymentMethod}
+
+Payment Status: ${paymentStatus}
+
+CUSTOMER DETAILS
+
+Name: ${customerName}
+Phone: ${phone}
+Address: ${address}
+Pincode: ${pincode}
+`;
+
+    // Open WhatsApp automatically only for COD orders
+if (orderPaymentMethod === "COD") {
+  window.open(
+    `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
+    "_blank",
+    "noopener,noreferrer"
+  );
+}
+
+    return result;
+  };
+
+  // ======================================
+  // UPI PAYMENT
+  // ======================================
+
+  const handleUPIPayment = async () => {
+    if (!UPI_ID) {
+      throw new Error("Shop owner's UPI ID is missing");
+    }
+
+    if (!selectedProduct) {
+      throw new Error("Please select a product");
+    }
+
+    const productPrice = Number(selectedProduct.basePrice);
+
+    if (!Number.isFinite(productPrice) || productPrice <= 0) {
+      throw new Error("Invalid product price");
+    }
+
+    // UNIQUE TRANSACTION REFERENCE
+
+    const transactionReference = `GS${Date.now()}`;
+
+    // UPI PAYMENT URL
+
+    const params = new URLSearchParams({
+      pa: UPI_ID,
+      pn: UPI_NAME,
+      am: productPrice.toFixed(2),
+      cu: "INR",
+      tn: `Order ${transactionReference}`,
+      tr: transactionReference,
+    });
+
+    const upiUrl = `upi://pay?${params.toString()}`;
+
+    // QR CODE URL
+
+    const qrUrl =
+      `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUrl)}`;
+
+    // SAVE ORDER AS PENDING
+
+    await saveOrderToDB("Pending", transactionReference);
+
+    setUpiPaymentUrl(upiUrl);
+    setUpiQrUrl(qrUrl);
+  };
+
+  // ======================================
+  // PLACE ORDER
+  // ======================================
+
+  const handlePlaceOrder = async (e) => {
+    e.preventDefault();
+
+    if (!selectedProduct || submitting) return;
+
+    try {
+      setSubmitting(true);
+
+      if (paymentMethod === "UPI") {
+        await handleUPIPayment();
+      } else {
+        await saveOrderToDB("Pending");
+
+        setOrderSuccess(true);
+
+        setTimeout(() => {
+          resetCheckout();
+        }, 3000);
+      }
+    } catch (err) {
+      console.error("Order error:", err);
+
+      alert(
+        err.message || "Something went wrong. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ======================================
+  // OPEN UPI APP
+  // ======================================
+
+  const openUPIApp = () => {
+    if (!upiPaymentUrl) return;
+
+    window.location.href = upiPaymentUrl;
+  };
+
+  // ======================================
+  // UI
+  // ======================================
 
   return (
     <main className="overflow-hidden bg-white">
 
-      {/* =====================================================
-          HERO
-      ====================================================== */}
+      {/* HERO SECTION */}
+
       <section className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 px-6 pb-20 pt-36">
-
-        <div className="absolute -left-40 top-10 h-96 w-96 rounded-full bg-blue-200/30 blur-[110px]" />
-
-        <div className="absolute -right-40 top-20 h-96 w-96 rounded-full bg-purple-200/30 blur-[110px]" />
-
         <div className="relative mx-auto max-w-7xl">
-
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
             className="max-w-4xl"
           >
-
-            {/* Badge */}
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-4 py-2 text-sm font-bold text-purple-600 shadow-sm">
               <ShoppingBag size={16} />
               Products & Solutions
             </div>
 
-            {/* Heading */}
             <h1 className="text-5xl font-black tracking-tight text-slate-900 md:text-6xl">
-
               Quality products.
 
               <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Honest technology solutions.
               </span>
-
             </h1>
-
-            {/* Description */}
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-
-              Explore laptops, RAM, SSDs, hard disks, keyboards, mice,
-              printers, CCTV, UPS and other computer products available
-              through Global Systems.
-
-            </p>
-
-            {/* Price Notice */}
-            <div className="mt-7 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm leading-6 text-blue-800">
-
-              <strong>Price note:</strong>{" "}
-              Prices shown are online reference prices and may change.
-              Contact Global Systems for current availability and final price.
-
-            </div>
-
           </motion.div>
-
         </div>
-
       </section>
 
+      {/* PRODUCTS SECTION */}
 
-      {/* =====================================================
-          PRODUCTS
-      ====================================================== */}
       <section className="bg-slate-50 px-6 py-24">
-
         <div className="mx-auto max-w-7xl">
 
-          {/* Section heading */}
-          <motion.div
-            initial={{ opacity: 0, y: 25 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="mb-12"
-          >
-
+          <div className="mb-12">
             <p className="font-bold uppercase tracking-[0.25em] text-blue-600">
               Featured Products
             </p>
@@ -257,292 +479,427 @@ function Product() {
             <h2 className="mt-3 text-4xl font-black text-slate-900 md:text-5xl">
               Explore our products
             </h2>
+          </div>
 
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-500">
-              Looking for a product? Check the reference price and contact
-              Global Systems directly for availability.
-            </p>
+          {loading && (
+            <div className="py-20 text-center font-medium text-slate-600">
+              Loading products from database...
+            </div>
+          )}
 
-          </motion.div>
+          {error && (
+            <div className="rounded-2xl bg-red-50 py-12 text-center text-red-700">
+              {error}
+            </div>
+          )}
 
+          {!loading && !error && products.length === 0 && (
+            <div className="py-20 text-center text-slate-600">
+              No products available.
+            </div>
+          )}
 
-          {/* Product grid */}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {!loading && !error && products.length > 0 && (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 
-            {products.map((product, index) => {
-
-              const Icon = product.icon;
-
-              return (
+              {products.map((product) => (
                 <motion.div
-                  key={product.name}
-                  initial={{
-                    opacity: 0,
-                    y: 35,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  viewport={{
-                    once: true,
-                    amount: 0.15,
-                  }}
-                  transition={{
-                    duration: 0.5,
-                    delay: index * 0.04,
-                  }}
-                  whileHover={{
-                    y: -8,
-                  }}
-                  className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition duration-300 hover:shadow-2xl"
+                  key={product._id}
+                  initial={{ opacity: 0, y: 35 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="group flex flex-col justify-between overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:shadow-2xl"
                 >
+                  <div>
 
-                  {/* =================================================
-                      PRODUCT IMAGE
-                  ================================================== */}
-                  <div className="relative h-56 overflow-hidden bg-white">
+                    <ProductImage product={product} />
 
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="h-full w-full object-contain p-6 transition duration-500 group-hover:scale-110"
-                    />
+                    <div className="p-7">
 
-                    {/* Category */}
-                    <div className="absolute left-5 top-5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-md backdrop-blur">
-                      {product.category}
+                      <h3 className="text-xl font-black text-slate-900">
+                        {product.name}
+                      </h3>
+
+                      <p className="mt-3 min-h-[56px] leading-7 text-slate-500">
+                        {product.description}
+                      </p>
+
+                      <div className="mt-6">
+
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Price
+                        </p>
+
+                        <p className="mt-1 text-2xl font-black text-blue-600">
+                          ₹{Number(product.basePrice || 0).toLocaleString("en-IN")}
+                        </p>
+
+                      </div>
                     </div>
-
-                    {/* Bottom gradient */}
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/70 to-transparent" />
-
                   </div>
 
+                  {/* PRODUCT BUTTONS */}
 
-                  {/* =================================================
-                      PRODUCT DETAILS
-                  ================================================== */}
-                  <div className="p-7">
+                  <div className="flex gap-3 p-7 pt-0">
 
-                    {/* Product name */}
-                    <h3 className="text-xl font-black text-slate-900">
-                      {product.name}
-                    </h3>
+                    <button
+                      onClick={() => setSelectedProduct(product)}
+                      disabled={!product.inStock}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 py-3.5 font-bold text-white shadow-md transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                    >
+                      {product.inStock ? "Buy Now" : "Out of Stock"}
 
+                      {product.inStock && <ArrowRight size={17} />}
+                    </button>
 
-                    {/* Description */}
-                    <p className="mt-3 min-h-[56px] leading-7 text-slate-500">
-                      {product.description}
-                    </p>
-
-
-                    {/* Price */}
-                    <div className="mt-6">
-
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Online reference price
-                      </p>
-
-                      <p className="mt-1 text-2xl font-black text-blue-600">
-                        {product.price}
-                      </p>
-
-                    </div>
-
-
-                    {/* Enquire button */}
                     <button
                       onClick={() => enquire(product.name)}
-                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3.5 font-bold text-white transition duration-300 hover:-translate-y-1 hover:bg-blue-600"
+                      className="rounded-full border border-slate-200 bg-slate-50 px-4 py-3.5 font-bold text-slate-700 transition hover:bg-slate-100"
                     >
-
-                      Enquire Now
-
-                      <ArrowRight
-                        size={17}
-                        className="transition-transform group-hover:translate-x-1"
-                      />
-
+                      Enquire
                     </button>
 
                   </div>
-
                 </motion.div>
-              );
-            })}
+              ))}
 
-          </div>
+            </div>
+          )}
 
         </div>
-
       </section>
 
+      {/* CHECKOUT MODAL */}
 
-      {/* =====================================================
-          REFURBISHED COMPUTERS
-      ====================================================== */}
-      <section className="px-6 py-24">
+      <AnimatePresence>
+        {selectedProduct && (
 
-        <div className="mx-auto grid max-w-7xl items-center gap-12 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-blue-600 to-purple-700 p-8 shadow-2xl md:p-14 lg:grid-cols-2">
-
-          {/* Text */}
-          <motion.div
-            initial={{
-              opacity: 0,
-              x: -30,
-            }}
-            whileInView={{
-              opacity: 1,
-              x: 0,
-            }}
-            viewport={{
-              once: true,
-            }}
-            transition={{
-              duration: 0.6,
-            }}
-          >
-
-            <p className="font-bold uppercase tracking-[0.25em] text-blue-100">
-              Smart Choice
-            </p>
-
-            <h2 className="mt-4 text-4xl font-black text-white md:text-5xl">
-
-              Refurbished computers
-
-              <br />
-
-              that make sense.
-
-            </h2>
-
-            <p className="mt-6 max-w-xl leading-8 text-blue-100">
-
-              Looking for a practical computer solution?
-              Ask Global Systems about available refurbished
-              laptops and desktop systems.
-
-            </p>
-
-            <button
-              onClick={() => enquire("a refurbished computer")}
-              className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 font-bold text-blue-700 transition hover:-translate-y-1 hover:bg-blue-50"
-            >
-
-              Check Availability
-
-              <ArrowRight size={18} />
-
-            </button>
-
-          </motion.div>
-
-
-          {/* Laptop visual */}
-          <div className="relative flex min-h-[280px] items-center justify-center">
-
-            <div className="absolute h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
 
             <motion.div
-              animate={{
-                y: [0, -12, 0],
-                rotate: [0, 2, 0, -2, 0],
-              }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-              }}
-              className="relative"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-8 shadow-2xl"
             >
 
-              {/* Laptop screen */}
-              <div className="h-40 w-64 rounded-2xl border-8 border-slate-200 bg-slate-900 shadow-2xl md:h-48 md:w-80">
+              {/* CLOSE BUTTON */}
 
-                <div className="m-3 flex h-[calc(100%-1.5rem)] items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-500">
+              <button
+                onClick={resetCheckout}
+                disabled={submitting}
+                className="absolute right-6 top-6 rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+              >
+                <X size={20} />
+              </button>
 
-                  <Laptop
-                    className="text-white"
-                    size={60}
-                    strokeWidth={1.4}
-                  />
+              {/* COD SUCCESS */}
+
+              {orderSuccess ? (
+
+                <div className="py-12 text-center">
+
+                  <CheckCircle className="mx-auto h-16 w-16 animate-bounce text-green-500" />
+
+                  <h3 className="mt-4 text-2xl font-bold text-slate-900">
+                    Order Placed Successfully!
+                  </h3>
+
+                  <p className="mt-2 text-slate-600">
+                    Your order has been saved.
+                  </p>
+
+                  <p className="mt-3 text-sm font-bold text-blue-600">
+                    Order ID: {savedOrderId}
+                  </p>
 
                 </div>
 
-              </div>
+              ) : upiPaymentUrl ? (
 
-              {/* Laptop base */}
-              <div className="mx-auto h-5 w-72 rounded-b-2xl bg-slate-200 shadow-xl md:w-96" />
+                /* UPI PAYMENT SCREEN */
+
+                <div className="py-4 text-center">
+
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                    <QrCode size={36} />
+                  </div>
+
+                  <h3 className="mt-4 text-2xl font-black text-slate-900">
+                    Complete UPI Payment
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-500">
+                    Scan this QR code using PhonePe, Google Pay or another UPI app.
+                  </p>
+
+                  <div className="mt-5 rounded-2xl border bg-slate-50 p-4">
+
+                    <p className="text-sm font-bold text-slate-500">
+                      Total Amount
+                    </p>
+
+                    <p className="mt-1 text-3xl font-black text-blue-600">
+                      ₹{Number(selectedProduct.basePrice).toLocaleString("en-IN")}
+                    </p>
+
+                    <p className="mt-3 text-sm font-semibold text-slate-700">
+                      Pay to: {UPI_NAME}
+                    </p>
+
+                    <p className="mt-1 break-all text-sm text-slate-500">
+                      {UPI_ID}
+                    </p>
+
+                  </div>
+
+                  {/* QR CODE */}
+
+                  <div className="mx-auto mt-5 flex w-fit items-center justify-center rounded-2xl border bg-white p-3 shadow-sm">
+
+                    <img
+                      src={upiQrUrl}
+                      alt="UPI Payment QR Code"
+                      className="h-56 w-56"
+                    />
+
+                  </div>
+
+                  {/* OPEN UPI APP */}
+
+                  <button
+                    type="button"
+                    onClick={openUPIApp}
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-blue-600 py-4 font-bold text-white shadow-lg transition hover:bg-blue-700"
+                  >
+                    <Smartphone size={20} />
+                    Open UPI Payment App
+                  </button>
+
+                  <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
+
+                    <p className="font-bold text-amber-800">
+                      Payment confirmation
+                    </p>
+
+                    <p className="mt-1 text-sm leading-6 text-amber-700">
+                      Your order is saved as Pending. After paying, the shop owner must confirm receipt before the order is marked as Paid.
+                    </p>
+
+                  </div>
+
+                  <p className="mt-4 text-xs text-slate-400">
+                    Order ID: {savedOrderId}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={resetCheckout}
+                    className="mt-4 w-full rounded-full border border-slate-300 py-3 font-bold text-slate-700 transition hover:bg-slate-100"
+                  >
+                    Close
+                  </button>
+
+                </div>
+
+              ) : (
+
+                /* CHECKOUT FORM */
+
+                <div>
+
+                  <h3 className="text-2xl font-black text-slate-900">
+                    Complete Your Order
+                  </h3>
+
+                  {/* SELECTED PRODUCT */}
+
+                  <div className="mt-4 flex items-center justify-between rounded-2xl border bg-slate-50 p-4">
+
+                    <div>
+
+                      <h4 className="font-bold text-slate-800">
+                        {selectedProduct.name}
+                      </h4>
+
+                      <p className="mt-1 font-bold text-blue-600">
+                        ₹{Number(selectedProduct.basePrice).toLocaleString("en-IN")}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  {/* CUSTOMER FORM */}
+
+                  <form
+                    onSubmit={handlePlaceOrder}
+                    className="mt-6 space-y-4"
+                  >
+
+                    {/* NAME */}
+
+                    <div>
+
+                      <label className="block text-sm font-bold text-slate-700">
+                        Full Name
+                      </label>
+
+                      <input
+                        type="text"
+                        required
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Enter your name"
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-blue-600 focus:outline-none"
+                      />
+
+                    </div>
+
+                    {/* PHONE */}
+
+                    <div>
+
+                      <label className="block text-sm font-bold text-slate-700">
+                        Phone Number
+                      </label>
+
+                      <input
+                        type="tel"
+                        required
+                        pattern="[0-9]{10}"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Enter 10-digit mobile number"
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-blue-600 focus:outline-none"
+                      />
+
+                    </div>
+
+                    {/* ADDRESS */}
+
+                    <div>
+
+                      <label className="block text-sm font-bold text-slate-700">
+                        Delivery Address
+                      </label>
+
+                      <textarea
+                        required
+                        rows="2"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="House No, Street, City"
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-blue-600 focus:outline-none"
+                      />
+
+                    </div>
+
+                    {/* PINCODE */}
+
+                    <div>
+
+                      <label className="block text-sm font-bold text-slate-700">
+                        Pincode
+                      </label>
+
+                      <input
+                        type="text"
+                        required
+                        pattern="[0-9]{6}"
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                        placeholder="Enter 6-digit pincode"
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-blue-600 focus:outline-none"
+                      />
+
+                    </div>
+
+                    {/* PAYMENT METHOD */}
+
+                    <div>
+
+                      <label className="mb-2 block text-sm font-bold text-slate-700">
+                        Select Payment Method
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-4">
+
+                        {/* COD */}
+
+                        <label
+                          className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 font-medium ${
+                            paymentMethod === "COD"
+                              ? "border-blue-600 bg-blue-50/50 text-blue-900"
+                              : "border-slate-200"
+                          }`}
+                        >
+
+                          <input
+                            type="radio"
+                            name="payment"
+                            value="COD"
+                            checked={paymentMethod === "COD"}
+                            onChange={() => setPaymentMethod("COD")}
+                          />
+
+                          Cash on Delivery
+
+                        </label>
+
+                        {/* UPI */}
+
+                        <label
+                          className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 font-medium ${
+                            paymentMethod === "UPI"
+                              ? "border-blue-600 bg-blue-50/50 text-blue-900"
+                              : "border-slate-200"
+                          }`}
+                        >
+
+                          <input
+                            type="radio"
+                            name="payment"
+                            value="UPI"
+                            checked={paymentMethod === "UPI"}
+                            onChange={() => setPaymentMethod("UPI")}
+                          />
+
+                          Online UPI
+
+                        </label>
+
+                      </div>
+
+                    </div>
+
+                    {/* SUBMIT BUTTON */}
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="mt-4 w-full rounded-full bg-slate-900 py-4 font-bold text-white shadow-xl transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {submitting
+                        ? "Processing..."
+                        : paymentMethod === "UPI"
+                        ? `Pay ₹${Number(selectedProduct.basePrice).toLocaleString("en-IN")} & Continue`
+                        : "Confirm COD Order"}
+                    </button>
+
+                  </form>
+
+                </div>
+
+              )}
 
             </motion.div>
 
           </div>
 
-        </div>
-
-      </section>
-
-
-      {/* =====================================================
-          CTA
-      ====================================================== */}
-      <section className="px-6 pb-24">
-
-        <motion.div
-          initial={{
-            opacity: 0,
-            y: 30,
-          }}
-          whileInView={{
-            opacity: 1,
-            y: 0,
-          }}
-          viewport={{
-            once: true,
-          }}
-          transition={{
-            duration: 0.6,
-          }}
-          className="mx-auto max-w-5xl rounded-[2.5rem] border border-slate-200 bg-slate-50 p-10 text-center md:p-14"
-        >
-
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
-
-            <ShoppingBag size={30} />
-
-          </div>
-
-          <h2 className="mt-6 text-3xl font-black text-slate-900 md:text-4xl">
-
-            Can't find what you're looking for?
-
-          </h2>
-
-          <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-500">
-
-            Contact Global Systems and tell us what product you need.
-            We'll help you find the right solution.
-
-          </p>
-
-          <button
-            onClick={() => enquire("a computer product")}
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-blue-600 px-7 py-4 font-bold text-white shadow-xl shadow-blue-200 transition hover:-translate-y-1 hover:bg-blue-700"
-          >
-
-            Contact Global Systems
-
-            <ArrowRight size={18} />
-
-          </button>
-
-        </motion.div>
-
-      </section>
+        )}
+      </AnimatePresence>
 
     </main>
   );
 }
-
-export default Product;

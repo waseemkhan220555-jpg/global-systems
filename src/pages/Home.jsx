@@ -31,10 +31,46 @@ function Home() {
     message: "",
   });
 
-  const handleWhatsAppSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Handle form submission to your backend & WhatsApp
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const text = `*New Service Inquiry*%0A%0A*Name:* ${formData.name}%0A*Phone:* ${formData.phone}%0A*Service:* ${formData.service}%0A*Details:* ${formData.message}`;
-    window.open(`https://wa.me/919448146841?text=${text}`, "_blank");
+    setSubmitting(true);
+    setSuccessMessage("");
+
+    try {
+      // 1. Send data to your Node.js/Express backend
+      const response = await fetch("http://localhost:5000/api/inquiries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccessMessage("Inquiry saved successfully! Opening WhatsApp...");
+        
+        // 2. Open WhatsApp after successful backend save
+        const text = `*New Service Inquiry*%0A%0A*Name:* ${formData.name}%0A*Phone:* ${formData.phone}%0A*Service:* ${formData.service}%0A*Details:* ${formData.message}`;
+        setTimeout(() => {
+          window.open(`https://wa.me/919448146841?text=${text}`, "_blank");
+        }, 1000);
+      } else {
+        alert(data.message || "Something went wrong.");
+      }
+    } catch (error) {
+      console.error("Error connecting to backend:", error);
+      // Fallback: Open WhatsApp even if backend is offline
+      const text = `*New Service Inquiry*%0A%0A*Name:* ${formData.name}%0A*Phone:* ${formData.phone}%0A*Service:* ${formData.service}%0A*Details:* ${formData.message}`;
+      window.open(`https://wa.me/919448146841?text=${text}`, "_blank");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const services = [
@@ -438,10 +474,16 @@ function Home() {
           <div className="text-center">
             <p className="font-bold uppercase tracking-[0.25em] text-blue-600">Quick Booking</p>
             <h2 className="mt-3 text-3xl font-black text-slate-900 md:text-4xl">Request a Service</h2>
-            <p className="mt-2 text-slate-600">Fill out this quick form to send your details straight to our WhatsApp.</p>
+            <p className="mt-2 text-slate-600">Fill out this quick form to save your inquiry to our server and send via WhatsApp.</p>
           </div>
 
-          <form onSubmit={handleWhatsAppSubmit} className="mt-8 space-y-5">
+          {successMessage && (
+            <div className="mt-4 p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-xl font-bold text-center">
+              {successMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
               <label className="block text-sm font-bold text-slate-700">Your Name</label>
               <input
@@ -496,10 +538,11 @@ function Home() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 disabled:bg-blue-400"
             >
               <Send size={18} />
-              Send via WhatsApp
+              {submitting ? "Saving & Opening WhatsApp..." : "Send via WhatsApp & Save"}
             </button>
           </form>
         </div>
@@ -656,7 +699,7 @@ function Home() {
           <div className="h-[420px] w-full overflow-hidden rounded-[2.5rem] border border-slate-200 shadow-xl">
             <iframe
               title="Global Systems Map Location"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3847.0!2d75.123!3d15.364!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTXCsDIxJzUwLjQiTiA3NcKwMDcnMjIuOCJF!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3847.0!2d75.123!3d15.364!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2sMTXCsDIxJzUwLjQiTiA3NcKwMDcnMjIuOCJF!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin"
               width="100%"
               height="100%"
               style={{ border: 0 }}
