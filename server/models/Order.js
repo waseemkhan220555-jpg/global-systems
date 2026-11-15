@@ -1,115 +1,135 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
-    orderId: {
-        type: String,
-        unique: true,
-        required: true
+  orderId: {
+    type: String,
+    unique: true,
+    required: true,
+  },
+
+  // Link order to the logged-in customer.
+  // Optional so older orders remain compatible.
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+    index: true,
+  },
+
+  customer: {
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
+    address: { type: String, required: true },
+    pincode: { type: String, required: true },
+    coordinates: {
+      lat: Number,
+      lng: Number,
     },
+  },
 
-    customer: {
-        name: { type: String, required: true },
-        phone: { type: String, required: true },
-        address: { type: String, required: true },
-        pincode: { type: String, required: true },
-
-        coordinates: {
-            lat: Number,
-            lng: Number
-        }
+  items: [
+    {
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+      name: String,
+      variantName: String,
+      basePrice: Number,
+      price: Number,
+      qty: Number,
+      quantity: Number,
     },
+  ],
 
-    items: [
-        {
-            productId: {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'Product'
-            },
+  totalAmount: {
+    type: Number,
+    required: true,
+  },
 
-            name: String,
-            variantName: String,
+  paymentMethod: {
+    type: String,
+    enum: ["COD", "RAZORPAY"],
+    default: "COD",
+  },
 
-            basePrice: Number,
-            price: Number,
+  paymentStatus: {
+    type: String,
+    enum: ["Pending", "Paid", "Failed"],
+    default: "Pending",
+  },
 
-            qty: Number,
-            quantity: Number
-        }
+  razorpayOrderId: {
+    type: String,
+    default: null,
+  },
+
+  razorpayPaymentId: {
+    type: String,
+    default: null,
+  },
+
+  paymentVerifiedAt: {
+    type: Date,
+    default: null,
+  },
+
+  paymentTxnId: {
+    type: String,
+    default: "",
+  },
+
+  orderStatus: {
+    type: String,
+    enum: [
+      "Payment Pending",
+      "Order Placed",
+      "Processing",
+      "Out for Delivery",
+      "Delivered",
+      "Cancelled",
     ],
+    default: "Payment Pending",
+  },
 
-    totalAmount: {
-        type: Number,
-        required: true
-    },
+  expectedDeliveryDate: {
+    type: Date,
+    default: null,
+  },
 
-    paymentMethod: {
-        type: String,
-        enum: ['COD', 'UPI', 'UPI_QR', 'RAZORPAY'],
-        default: 'COD'
-    },
+  trackingUrl: {
+    type: String,
+    default: "",
+  },
 
-    paymentStatus: {
-        type: String,
-        enum: ['Pending', 'Paid', 'Failed'],
-        default: 'Pending'
-    },
-
-    paymentTxnId: String,
-
-    orderStatus: {
+  statusHistory: [
+    {
+      status: {
         type: String,
         enum: [
-            'Order Placed',
-            'Processing',
-            'Out for Delivery',
-            'Delivered',
-            'Cancelled'
+          "Payment Pending",
+          "Order Placed",
+          "Processing",
+          "Out for Delivery",
+          "Delivered",
+          "Cancelled",
         ],
-        default: 'Order Placed'
-    },
-
-    // Expected parcel delivery date
-    expectedDeliveryDate: {
-        type: Date,
-        default: null
-    },
-
-    // External courier tracking link, if available
-    trackingUrl: {
+      },
+      note: {
         type: String,
-        default: ""
-    },
-
-    // Records changes to the order status
-    statusHistory: [
-        {
-            status: {
-                type: String,
-                enum: [
-                    'Order Placed',
-                    'Processing',
-                    'Out for Delivery',
-                    'Delivered',
-                    'Cancelled'
-                ]
-            },
-
-            note: {
-                type: String,
-                default: ""
-            },
-
-            updatedAt: {
-                type: Date,
-                default: Date.now
-            }
-        }
-    ],
-
-    placedAt: {
+        default: "",
+      },
+      updatedAt: {
         type: Date,
-        default: Date.now
-    }
+        default: Date.now,
+      },
+    },
+  ],
+
+  placedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = mongoose.model("Order", orderSchema);

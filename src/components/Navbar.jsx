@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Phone, MessageCircle, Wrench, Menu, X } from "lucide-react";
+import {
+  Phone,
+  MessageCircle,
+  Wrench,
+  Menu,
+  X,
+  UserRound,
+} from "lucide-react";
 import logo from "../assets/logo.jpg";
 
 function Navbar() {
@@ -15,42 +22,62 @@ function Navbar() {
           <img
             src={logo}
             alt="Global Systems"
-            className="h-10 w-10 sm:h-12 sm:w-12 object-contain"
+            className="h-10 w-10 object-contain sm:h-12 sm:w-12"
           />
 
           <div className="leading-none">
-            <div className="text-[16px] sm:text-[19px] font-black tracking-tight">
+            <div className="text-[16px] font-black tracking-tight sm:text-[19px]">
               <span className="text-blue-700">GLOBAL</span>{" "}
               <span className="text-red-500">SYSTEMS</span>
             </div>
 
-            <p className="mt-1.5 text-[8px] sm:text-[9px] font-semibold tracking-[0.08em] text-slate-500">
+            <p className="mt-1.5 text-[8px] font-semibold tracking-[0.08em] text-slate-500 sm:text-[9px]">
               COMPLETE SOLUTION FOR COMPUTERS
             </p>
           </div>
         </Link>
 
         {/* DESKTOP NAV */}
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-6 md:flex lg:gap-7">
           <Link to="/" className="font-semibold text-slate-700 transition hover:text-blue-600">
             Home
           </Link>
+
           <Link to="/services" className="font-medium text-slate-600 transition hover:text-blue-600">
             Services
           </Link>
+
           <Link to="/products" className="font-medium text-slate-600 transition hover:text-blue-600">
             Products
           </Link>
+
           <Link to="/about" className="font-medium text-slate-600 transition hover:text-blue-600">
             About
           </Link>
+
           <Link to="/contact" className="font-medium text-slate-600 transition hover:text-blue-600">
             Contact
+          </Link>
+
+          {/* CUSTOMER LOGIN */}
+          <Link
+            to="/login"
+            className="flex items-center gap-1.5 font-semibold text-slate-700 transition hover:text-blue-600"
+          >
+            <UserRound size={17} />
+            Login
           </Link>
         </nav>
 
         {/* DESKTOP ACTIONS */}
         <div className="hidden items-center gap-2 lg:flex">
+          <Link
+            to="/signup"
+            className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+          >
+            Sign Up
+          </Link>
+
           <Link
             to="/#booking"
             className="flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
@@ -78,8 +105,16 @@ function Navbar() {
           </a>
         </div>
 
-        {/* MOBILE ACTIONS & HAMBURGER TOGGLE */}
+        {/* MOBILE ACTIONS & HAMBURGER */}
         <div className="flex items-center gap-2 md:hidden">
+          <Link
+            to="/login"
+            aria-label="Customer Login"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-700"
+          >
+            <UserRound size={18} />
+          </Link>
+
           <a
             href="tel:+919448146841"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-700"
@@ -96,50 +131,55 @@ function Navbar() {
             {isOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
-
       </div>
 
       {/* MOBILE DROPDOWN MENU */}
       {isOpen && (
-        <div className="absolute top-[78px] left-0 w-full border-b border-slate-200 bg-white/95 px-6 py-6 shadow-xl backdrop-blur-xl md:hidden">
+        <div className="absolute left-0 top-[78px] w-full border-b border-slate-200 bg-white/95 px-6 py-6 shadow-xl backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-4">
-            <Link
-              to="/"
-              onClick={() => setIsOpen(false)}
-              className="font-semibold text-slate-700 text-base py-1"
-            >
+
+            <Link to="/" onClick={() => setIsOpen(false)} className="py-1 text-base font-semibold text-slate-700">
               Home
             </Link>
-            <Link
-              to="/services"
-              onClick={() => setIsOpen(false)}
-              className="font-medium text-slate-600 text-base py-1"
-            >
+
+            <Link to="/services" onClick={() => setIsOpen(false)} className="py-1 text-base font-medium text-slate-600">
               Services
             </Link>
-            <Link
-              to="/products"
-              onClick={() => setIsOpen(false)}
-              className="font-medium text-slate-600 text-base py-1"
-            >
+
+            <Link to="/products" onClick={() => setIsOpen(false)} className="py-1 text-base font-medium text-slate-600">
               Products
             </Link>
-            <Link
-              to="/about"
-              onClick={() => setIsOpen(false)}
-              className="font-medium text-slate-600 text-base py-1"
-            >
+
+            <Link to="/about" onClick={() => setIsOpen(false)} className="py-1 text-base font-medium text-slate-600">
               About
             </Link>
-            <Link
-              to="/contact"
-              onClick={() => setIsOpen(false)}
-              className="font-medium text-slate-600 text-base py-1"
-            >
+
+            <Link to="/contact" onClick={() => setIsOpen(false)} className="py-1 text-base font-medium text-slate-600">
               Contact
             </Link>
 
-            <div className="mt-2 flex flex-col gap-2.5 pt-4 border-t border-slate-100">
+            {/* CUSTOMER ACCOUNT LINKS */}
+            <div className="flex flex-col gap-2 border-t border-slate-100 pt-4">
+              <Link
+                to="/login"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 py-3 text-sm font-bold text-blue-700"
+              >
+                <UserRound size={16} />
+                Customer Login
+              </Link>
+
+              <Link
+                to="/signup"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center justify-center rounded-full bg-blue-600 py-3 text-sm font-bold text-white shadow-md"
+              >
+                Create Account
+              </Link>
+            </div>
+
+            {/* OTHER ACTIONS */}
+            <div className="mt-2 flex flex-col gap-2.5 border-t border-slate-100 pt-4">
               <Link
                 to="/#booking"
                 onClick={() => setIsOpen(false)}
@@ -148,6 +188,7 @@ function Navbar() {
                 <Wrench size={16} />
                 Book Service
               </Link>
+
               <a
                 href="https://wa.me/919448146841"
                 target="_blank"

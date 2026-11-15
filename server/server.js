@@ -1,3 +1,4 @@
+
 const crypto = require("crypto");
 const express = require("express");
 const mongoose = require("mongoose");
@@ -6,6 +7,34 @@ require("dotenv").config();
 
 const Product = require("./models/Product");
 const Order = require("./models/Order");
+const User = require("./models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const Razorpay = require("razorpay");
+
+// ======================================
+// RAZORPAY CONFIGURATION
+// ======================================
+
+let razorpayInstance = null;
+
+function getRazorpay() {
+  if (
+    !process.env.RAZORPAY_KEY_ID ||
+    !process.env.RAZORPAY_KEY_SECRET
+  ) {
+    throw new Error("Razorpay API keys are missing.");
+  }
+
+  if (!razorpayInstance) {
+    razorpayInstance = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+
+  return razorpayInstance;
+}
 
 // ======================================
 // EXPRESS CONFIGURATION
@@ -48,11 +77,55 @@ function requireAdmin(req, res, next) {
   ) {
     return res.status(401).json({
       success: false,
-      message: "Invalid admin key. Access denied.",
+      message: "Invalid admin key.",
     });
   }
 
   next();
+}
+
+// ======================================
+// CUSTOMER AUTHENTICATION
+// ======================================
+
+function requireCustomer(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "Please login to continue.",
+    });
+  }
+
+  try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not configured.");
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    if (!decoded.userId || !mongoose.isValidObjectId(decoded.userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid login session.",
+      });
+    }
+
+    req.userId = decoded.userId;
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired login session.",
+    });
+  }
 }
 
 // ======================================
@@ -64,12 +137,15 @@ const inquirySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+
   phone: {
     type: String,
     required: true,
   },
+
   service: String,
   message: String,
+
   createdAt: {
     type: Date,
     default: Date.now,
@@ -81,6 +157,225 @@ const Inquiry =
   mongoose.model("Inquiry", inquirySchema);
 
 // ======================================
+// CUSTOMER SIGNUP
+// ======================================
+
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email and password are required.",
+      });
+    }
+
+    const cleanName = String(name).trim();
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanPassword = String(password);
+
+    if (cleanName.length < 2 || cleanName.length > 60) {
+      return res.status(400).json({
+        success: false,
+        message: "Name must contain 2 to 60 characters.",
+      });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid email address.",
+      });
+    }
+
+    if (cleanPassword.length < 8 || cleanPassword.length > 72) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must contain 8 to 72 characters.",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: "Authentication is not configured.",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: cleanEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      cleanPassword,
+      12
+    );
+
+    const user = await User.create({
+      name: cleanName,
+      email: cleanEmail,
+      password: hashedPassword,
+      role: "customer",
+    });
+
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Account created successfully!",
+      token,
+
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to create account.",
+    });
+  }
+});
+
+// ======================================
+// CUSTOMER LOGIN
+// ======================================
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required.",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: "Authentication is not configured.",
+      });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: cleanEmail,
+    }).select("+password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      String(password),
+      user.password
+    );
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      success: true,
+      message: "Login successful!",
+      token,
+
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to login.",
+    });
+  }
+});
+
+// ======================================
+// GET LOGGED-IN CUSTOMER
+// ======================================
+
+app.get(
+  "/api/auth/me",
+  requireCustomer,
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Customer account not found.",
+        });
+      }
+
+      return res.json({
+        success: true,
+
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (error) {
+      console.error("Customer profile error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to fetch customer profile.",
+      });
+    }
+  }
+);
+
+// ======================================
 // HEALTH CHECK
 // ======================================
 
@@ -88,33 +383,35 @@ app.get("/", (req, res) => {
   res.json({
     success: true,
     message: "Global Systems API is running!",
-    payment: "PhonePe / UPI QR",
+    payment: "Razorpay + COD",
   });
 });
 
 // ======================================
-// PRODUCT APIs
+// GET ALL PRODUCTS
 // ======================================
 
-// GET ALL PRODUCTS
 app.get("/api/products", async (req, res) => {
   try {
     const products = await Product.find().sort({
       createdAt: -1,
     });
 
-    res.json(products);
+    return res.json(products);
   } catch (error) {
     console.error("Product fetch error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to fetch products.",
     });
   }
 });
 
+// ======================================
 // GET SINGLE PRODUCT
+// ======================================
+
 app.get("/api/products/:id", async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
@@ -131,36 +428,91 @@ app.get("/api/products/:id", async (req, res) => {
       });
     }
 
-    res.json(product);
+    return res.json(product);
   } catch (error) {
     console.error("Single product error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to fetch product.",
     });
   }
 });
 
+// ======================================
 // ADD PRODUCT - ADMIN ONLY
-app.post("/api/products", requireAdmin, async (req, res) => {
-  try {
-    const product = await Product.create(req.body);
+// ======================================
 
-    res.status(201).json({
-      success: true,
-      message: "Product added successfully.",
-      product,
-    });
-  } catch (error) {
-    console.error("Add product error:", error);
+app.post(
+  "/api/products",
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const product = await Product.create(req.body);
 
-    res.status(400).json({
-      message: error.message,
-    });
+      return res.status(201).json({
+        success: true,
+        message: "Product added successfully.",
+        product,
+      });
+    } catch (error) {
+      console.error("Add product error:", error);
+
+      return res.status(400).json({
+        message: error.message,
+      });
+    }
   }
-});
+);
 
+// ======================================
+// UPDATE PRODUCT - ADMIN ONLY
+// ======================================
+
+app.put(
+  "/api/products/:id",
+  requireAdmin,
+  async (req, res) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({
+          message: "Invalid product ID.",
+        });
+      }
+
+      const product = await Product.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      if (!product) {
+        return res.status(404).json({
+          message: "Product not found.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Product updated successfully.",
+        product,
+      });
+    } catch (error) {
+      console.error("Update product error:", error);
+
+      return res.status(400).json({
+        message: error.message,
+      });
+    }
+  }
+);
+
+// ======================================
 // DELETE PRODUCT - ADMIN ONLY
+// ======================================
+
 app.delete(
   "/api/products/:id",
   requireAdmin,
@@ -182,14 +534,14 @@ app.delete(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: "Product deleted successfully.",
       });
     } catch (error) {
       console.error("Delete product error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to delete product.",
       });
     }
@@ -197,183 +549,546 @@ app.delete(
 );
 
 // ======================================
-// ORDER CREATION
+// RAZORPAY - CREATE PAYMENT ORDER
+// LOGIN REQUIRED
 // ======================================
 
-app.post("/api/orders", async (req, res) => {
-  try {
-    const { customer, items, paymentMethod } = req.body;
-
-    // CUSTOMER VALIDATION
-    if (
-      !customer ||
-      !customer.name ||
-      !customer.phone ||
-      !customer.address ||
-      !customer.pincode
-    ) {
-      return res.status(400).json({
-        message: "Complete all customer details.",
-      });
-    }
-
-    const name = String(customer.name).trim();
-    const phone = String(customer.phone).trim();
-    const address = String(customer.address).trim();
-    const pincode = String(customer.pincode).trim();
-
-    if (!/^[0-9]{10}$/.test(phone)) {
-      return res.status(400).json({
-        message: "Enter a valid 10-digit phone number.",
-      });
-    }
-
-    if (!/^[0-9]{6}$/.test(pincode)) {
-      return res.status(400).json({
-        message: "Enter a valid 6-digit pincode.",
-      });
-    }
-
-    // CART VALIDATION
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        message: "Your cart is empty.",
-      });
-    }
-
-    if (items.length > 50) {
-      return res.status(400).json({
-        message: "Too many products in one order.",
-      });
-    }
-
-    // PAYMENT METHOD
-    let finalPaymentMethod;
-
-    if (
-      paymentMethod === "UPI" ||
-      paymentMethod === "UPI_QR"
-    ) {
-      finalPaymentMethod = "UPI_QR";
-    } else if (paymentMethod === "COD") {
-      finalPaymentMethod = "COD";
-    } else {
-      return res.status(400).json({
-        message: "Choose PhonePe/UPI QR or Cash on Delivery.",
-      });
-    }
-
-    // VERIFY PRODUCTS AND PRICES
-    const verifiedItems = [];
-    let totalAmount = 0;
-
-    for (const item of items) {
-      const productId = item.productId || item._id;
-
-      const quantity = Number(
-        item.qty || item.quantity || 1
-      );
+app.post(
+  "/api/payments/create-order",
+  requireCustomer,
+  async (req, res) => {
+    try {
+      const { customer, items } = req.body;
 
       if (
-        !productId ||
-        !mongoose.isValidObjectId(productId) ||
-        !Number.isInteger(quantity) ||
-        quantity < 1 ||
-        quantity > 100
+        !customer ||
+        !customer.name ||
+        !customer.phone ||
+        !customer.address ||
+        !customer.pincode
       ) {
         return res.status(400).json({
-          message: "Invalid product or quantity.",
+          success: false,
+          message: "Complete all delivery details.",
         });
       }
 
-      const product = await Product.findById(productId);
+      const name = String(customer.name).trim();
+      const phone = String(customer.phone).trim();
+      const address = String(customer.address).trim();
+      const pincode = String(customer.pincode).trim();
 
-      if (!product) {
-        return res.status(404).json({
-          message: "Product not found.",
+      if (!name || !address) {
+        return res.status(400).json({
+          message: "Enter valid delivery details.",
         });
       }
 
-      const price = Number(
-        product.price ?? product.basePrice
+      if (!/^[0-9]{10}$/.test(phone)) {
+        return res.status(400).json({
+          message: "Enter a valid 10-digit phone number.",
+        });
+      }
+
+      if (!/^[0-9]{6}$/.test(pincode)) {
+        return res.status(400).json({
+          message: "Enter a valid pincode.",
+        });
+      }
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          message: "Your cart is empty.",
+        });
+      }
+
+      if (items.length > 50) {
+        return res.status(400).json({
+          message: "Too many products.",
+        });
+      }
+
+      const verifiedItems = [];
+      let totalAmount = 0;
+
+      for (const item of items) {
+        const productId = item.productId || item._id;
+        const quantity = Number(
+          item.qty || item.quantity || 1
+        );
+
+        if (
+          !productId ||
+          !mongoose.isValidObjectId(productId) ||
+          !Number.isInteger(quantity) ||
+          quantity < 1 ||
+          quantity > 100
+        ) {
+          return res.status(400).json({
+            message: "Invalid product or quantity.",
+          });
+        }
+
+        const product = await Product.findById(productId);
+
+        if (!product) {
+          return res.status(404).json({
+            message: "Product not found.",
+          });
+        }
+
+        const price = Number(
+          product.price ?? product.basePrice
+        );
+
+        const stock = Number(product.stockQuantity);
+
+        if (!Number.isFinite(price) || price <= 0) {
+          return res.status(400).json({
+            message: "Invalid product price.",
+          });
+        }
+
+        if (
+          !Number.isFinite(stock) ||
+          stock < quantity
+        ) {
+          return res.status(400).json({
+            message: `${product.name} has insufficient stock.`,
+          });
+        }
+
+        verifiedItems.push({
+          productId: product._id,
+          name: product.name,
+          variantName: item.variantName || "",
+          basePrice: Number(product.basePrice ?? price),
+          price,
+          qty: quantity,
+          quantity,
+        });
+
+        totalAmount += price * quantity;
+      }
+
+      totalAmount = Number(totalAmount.toFixed(2));
+
+      const amountInPaise = Math.round(
+        totalAmount * 100
       );
 
-      if (!Number.isFinite(price) || price < 0) {
+      if (amountInPaise < 100) {
         return res.status(400).json({
-          message: "Invalid product price.",
+          message: "Minimum payment amount is ₹1.",
         });
       }
 
-      if (
-        product.stock !== undefined &&
-        product.stock !== null &&
-        Number(product.stock) < quantity
-      ) {
-        return res.status(400).json({
-          message: `${product.name} is out of stock.`,
-        });
-      }
+      const orderId =
+        "ORD-" +
+        Date.now() +
+        "-" +
+        crypto
+          .randomBytes(3)
+          .toString("hex")
+          .toUpperCase();
 
-      verifiedItems.push({
-        productId: product._id,
-        name: product.name,
-        variantName: item.variantName || "",
-        basePrice: Number(product.basePrice ?? price),
-        price,
-        qty: quantity,
-        quantity,
+      const razorpayOrder = await getRazorpay().orders.create({
+        amount: amountInPaise,
+        currency: "INR",
+        receipt: orderId,
+
+        notes: {
+          store: "Global Systems",
+          orderId,
+        },
       });
 
-      totalAmount += price * quantity;
+      const order = await Order.create({
+        orderId,
+
+        // Link this order to the logged-in customer.
+        userId: req.userId,
+
+        customer: {
+          name,
+          phone,
+          address,
+          pincode,
+          coordinates: customer.coordinates || undefined,
+        },
+
+        items: verifiedItems,
+        totalAmount,
+
+        paymentMethod: "RAZORPAY",
+        paymentStatus: "Pending",
+        orderStatus: "Payment Pending",
+
+        razorpayOrderId: razorpayOrder.id,
+
+        statusHistory: [
+          {
+            status: "Payment Pending",
+            note: "Razorpay payment initiated.",
+          },
+        ],
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Payment order created.",
+        key: process.env.RAZORPAY_KEY_ID,
+        razorpayOrderId: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        orderId: order.orderId,
+      });
+    } catch (error) {
+      console.error(
+        "Razorpay order creation error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to create payment order.",
+      });
     }
-
-    // GENERATE ORDER ID
-    const orderId =
-      "ORD-" +
-      Date.now() +
-      "-" +
-      crypto.randomBytes(3).toString("hex").toUpperCase();
-
-    // SAVE ORDER
-    const order = await Order.create({
-      orderId,
-
-      customer: {
-        name,
-        phone,
-        address,
-        pincode,
-        coordinates: customer.coordinates || undefined,
-      },
-
-      items: verifiedItems,
-      totalAmount,
-
-      paymentMethod: finalPaymentMethod,
-
-      paymentStatus: "Pending",
-      orderStatus: "Order Placed",
-      trackingUrl: "",
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Order placed successfully!",
-      orderId: order.orderId,
-      order,
-    });
-  } catch (error) {
-    console.error("Order creation error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to place order.",
-    });
   }
-});
+);
+
+// ======================================
+// RAZORPAY - VERIFY PAYMENT
+// LOGIN REQUIRED
+// ======================================
+
+app.post(
+  "/api/payments/verify",
+  requireCustomer,
+  async (req, res) => {
+    try {
+      const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      } = req.body;
+
+      if (
+        !razorpay_order_id ||
+        !razorpay_payment_id ||
+        !razorpay_signature
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing payment details.",
+        });
+      }
+
+      if (!process.env.RAZORPAY_KEY_SECRET) {
+        return res.status(500).json({
+          success: false,
+          message: "Payment configuration error.",
+        });
+      }
+
+      // Find the order belonging to this customer only.
+      const order = await Order.findOne({
+        razorpayOrderId: razorpay_order_id,
+        userId: req.userId,
+      });
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found.",
+        });
+      }
+
+      if (order.paymentStatus === "Paid") {
+        return res.json({
+          success: true,
+          message: "Payment already verified.",
+          orderId: order.orderId,
+        });
+      }
+
+      // Verify Razorpay signature.
+      const expectedSignature = crypto
+        .createHmac(
+          "sha256",
+          process.env.RAZORPAY_KEY_SECRET
+        )
+        .update(
+          `${razorpay_order_id}|${razorpay_payment_id}`
+        )
+        .digest("hex");
+
+      const signatureBuffer = Buffer.from(
+        String(razorpay_signature),
+        "hex"
+      );
+
+      const expectedBuffer = Buffer.from(
+        expectedSignature,
+        "hex"
+      );
+
+      if (
+        signatureBuffer.length !== expectedBuffer.length ||
+        !crypto.timingSafeEqual(
+          signatureBuffer,
+          expectedBuffer
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid payment signature.",
+        });
+      }
+
+      // Fetch payment directly from Razorpay.
+      const payment = await getRazorpay().payments.fetch(
+        razorpay_payment_id
+      );
+
+      if (
+        payment.order_id !== razorpay_order_id ||
+        payment.amount !== Math.round(order.totalAmount * 100) ||
+        payment.currency !== "INR" ||
+        payment.status !== "captured"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Payment is not captured or details do not match.",
+        });
+      }
+
+      order.paymentStatus = "Paid";
+      order.paymentTxnId = razorpay_payment_id;
+      order.razorpayPaymentId = razorpay_payment_id;
+      order.paymentVerifiedAt = new Date();
+      order.orderStatus = "Order Placed";
+
+      order.statusHistory.push({
+        status: "Order Placed",
+        note: "Razorpay payment verified successfully.",
+      });
+
+      await order.save();
+
+      return res.json({
+        success: true,
+        message: "Payment verified successfully.",
+        orderId: order.orderId,
+      });
+    } catch (error) {
+      console.error(
+        "Razorpay verification error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Payment verification failed.",
+      });
+    }
+  }
+);
+
+// ======================================
+// COD ORDER CREATION
+// LOGIN REQUIRED
+// ======================================
+
+app.post(
+  "/api/orders",
+  requireCustomer,
+  async (req, res) => {
+    try {
+      const { customer, items, paymentMethod } = req.body;
+
+      if (paymentMethod !== "COD") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Online payments must use Razorpay checkout.",
+        });
+      }
+
+      if (
+        !customer ||
+        !customer.name ||
+        !customer.phone ||
+        !customer.address ||
+        !customer.pincode
+      ) {
+        return res.status(400).json({
+          message: "Complete all customer details.",
+        });
+      }
+
+      const name = String(customer.name).trim();
+      const phone = String(customer.phone).trim();
+      const address = String(customer.address).trim();
+      const pincode = String(customer.pincode).trim();
+
+      if (!name || !address) {
+        return res.status(400).json({
+          message: "Enter valid customer details.",
+        });
+      }
+
+      if (!/^[0-9]{10}$/.test(phone)) {
+        return res.status(400).json({
+          message: "Enter a valid 10-digit phone number.",
+        });
+      }
+
+      if (!/^[0-9]{6}$/.test(pincode)) {
+        return res.status(400).json({
+          message: "Enter a valid 6-digit pincode.",
+        });
+      }
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          message: "Your cart is empty.",
+        });
+      }
+
+      if (items.length > 50) {
+        return res.status(400).json({
+          message: "Too many products.",
+        });
+      }
+
+      const verifiedItems = [];
+      let totalAmount = 0;
+
+      for (const item of items) {
+        const productId = item.productId || item._id;
+
+        const quantity = Number(
+          item.qty || item.quantity || 1
+        );
+
+        if (
+          !productId ||
+          !mongoose.isValidObjectId(productId) ||
+          !Number.isInteger(quantity) ||
+          quantity < 1 ||
+          quantity > 100
+        ) {
+          return res.status(400).json({
+            message: "Invalid product or quantity.",
+          });
+        }
+
+        const product = await Product.findById(productId);
+
+        if (!product) {
+          return res.status(404).json({
+            message: "Product not found.",
+          });
+        }
+
+        const price = Number(
+          product.price ?? product.basePrice
+        );
+
+        const stock = Number(product.stockQuantity);
+
+        if (!Number.isFinite(price) || price <= 0) {
+          return res.status(400).json({
+            message: "Invalid product price.",
+          });
+        }
+
+        if (
+          !Number.isFinite(stock) ||
+          stock < quantity
+        ) {
+          return res.status(400).json({
+            message: `${product.name} has insufficient stock.`,
+          });
+        }
+
+        verifiedItems.push({
+          productId: product._id,
+          name: product.name,
+          variantName: item.variantName || "",
+          basePrice: Number(product.basePrice ?? price),
+          price,
+          qty: quantity,
+          quantity,
+        });
+
+        totalAmount += price * quantity;
+      }
+
+      totalAmount = Number(totalAmount.toFixed(2));
+
+      const orderId =
+        "ORD-" +
+        Date.now() +
+        "-" +
+        crypto
+          .randomBytes(3)
+          .toString("hex")
+          .toUpperCase();
+
+      const order = await Order.create({
+        orderId,
+
+        // Link this order to the logged-in customer.
+        userId: req.userId,
+
+        customer: {
+          name,
+          phone,
+          address,
+          pincode,
+          coordinates: customer.coordinates || undefined,
+        },
+
+        items: verifiedItems,
+        totalAmount,
+
+        paymentMethod: "COD",
+        paymentStatus: "Pending",
+        orderStatus: "Order Placed",
+
+        trackingUrl: "",
+
+        statusHistory: [
+          {
+            status: "Order Placed",
+            note: "Cash on Delivery order placed.",
+          },
+        ],
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Order placed successfully!",
+        orderId: order.orderId,
+        order,
+      });
+    } catch (error) {
+      console.error("COD order creation error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to place order.",
+      });
+    }
+  }
+);
 
 // ======================================
 // CUSTOMER ORDER TRACKING
+// ORDER ID + PHONE
 // ======================================
 
 app.post("/api/orders/track", async (req, res) => {
@@ -398,7 +1113,7 @@ app.post("/api/orders/track", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
 
       order: {
@@ -422,7 +1137,7 @@ app.post("/api/orders/track", async (req, res) => {
   } catch (error) {
     console.error("Order tracking error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to track order.",
     });
   }
@@ -441,7 +1156,7 @@ app.get(
         placedAt: -1,
       });
 
-      res.json({
+      return res.json({
         success: true,
         count: orders.length,
         orders,
@@ -449,7 +1164,7 @@ app.get(
     } catch (error) {
       console.error("Admin orders error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to fetch orders.",
       });
     }
@@ -475,14 +1190,14 @@ app.get(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         order,
       });
     } catch (error) {
       console.error("Single order error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to fetch order.",
       });
     }
@@ -534,11 +1249,25 @@ app.patch(
         });
       }
 
+      if (
+        order.paymentMethod === "RAZORPAY" &&
+        order.paymentStatus !== "Paid"
+      ) {
+        return res.status(400).json({
+          message: "Cannot process an unpaid Razorpay order.",
+        });
+      }
+
       order.orderStatus = orderStatus;
+
+      order.statusHistory.push({
+        status: orderStatus,
+        note: "Order status updated by admin.",
+      });
 
       await order.save();
 
-      res.json({
+      return res.json({
         success: true,
         message: "Order status updated.",
         order,
@@ -546,7 +1275,7 @@ app.patch(
     } catch (error) {
       console.error("Order status update error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to update order status.",
       });
     }
@@ -586,6 +1315,18 @@ app.patch(
         });
       }
 
+      // Razorpay payments must be verified by Razorpay.
+      if (
+        order.paymentMethod === "RAZORPAY" &&
+        paymentStatus === "Paid" &&
+        order.paymentStatus !== "Paid"
+      ) {
+        return res.status(400).json({
+          message:
+            "Razorpay payments must be verified through checkout.",
+        });
+      }
+
       order.paymentStatus = paymentStatus;
 
       if (paymentTxnId !== undefined) {
@@ -594,7 +1335,7 @@ app.patch(
 
       await order.save();
 
-      res.json({
+      return res.json({
         success: true,
         message: "Payment status updated.",
         order,
@@ -602,7 +1343,7 @@ app.patch(
     } catch (error) {
       console.error("Payment update error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to update payment status.",
       });
     }
@@ -643,7 +1384,7 @@ app.patch(
 
       await order.save();
 
-      res.json({
+      return res.json({
         success: true,
         message: "Tracking URL updated.",
         order,
@@ -651,7 +1392,7 @@ app.patch(
     } catch (error) {
       console.error("Tracking update error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to update tracking URL.",
       });
     }
@@ -671,11 +1412,11 @@ app.get(
         placedAt: -1,
       });
 
-      res.json(orders);
+      return res.json(orders);
     } catch (error) {
       console.error("Legacy orders error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to fetch orders.",
       });
     }
@@ -709,7 +1450,7 @@ app.post("/api/inquiries", async (req, res) => {
       message: message || "",
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Inquiry submitted successfully.",
       inquiry,
@@ -717,11 +1458,40 @@ app.post("/api/inquiries", async (req, res) => {
   } catch (error) {
     console.error("Inquiry submission error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to submit inquiry.",
     });
   }
 });
+
+// ======================================
+// ADMIN - GET ALL CUSTOMERS
+// ======================================
+
+app.get(
+  "/api/admin/customers",
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const customers = await User.find()
+        .select("name email role createdAt")
+        .sort({ createdAt: -1 });
+
+      return res.json({
+        success: true,
+        count: customers.length,
+        customers,
+      });
+    } catch (error) {
+      console.error("Admin customers error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to fetch customers.",
+      });
+    }
+  }
+);
 
 // ======================================
 // ADMIN - GET ALL INQUIRIES
@@ -736,12 +1506,11 @@ app.get(
         createdAt: -1,
       });
 
-      // Return an array to match Admin.jsx
-      res.json(inquiries);
+      return res.json(inquiries);
     } catch (error) {
       console.error("Inquiry fetch error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Unable to fetch inquiries.",
       });
     }
@@ -753,24 +1522,39 @@ app.get(
 // ======================================
 
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
     message: "API route not found.",
   });
 });
 
 // ======================================
-// SERVER START
+// GLOBAL ERROR HANDLER
 // ======================================
 
+app.use((error, req, res, next) => {
+  console.error("Unexpected server error:", error);
+
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  return res.status(500).json({
+    success: false,
+    message: "Internal server error.",
+  });
+});
+
 // ======================================
-// SERVER START / VERCEL EXPORT
+// EXPORT APP
 // ======================================
 
-// Export Express app for Vercel
 module.exports = app;
 
-// Run normally when starting locally
+// ======================================
+// START SERVER
+// ======================================
+
 if (require.main === module) {
   if (!process.env.MONGO_URI) {
     console.error("MONGO_URI is missing from .env");
@@ -787,7 +1571,8 @@ if (require.main === module) {
           `Global Systems server running on port ${PORT}`
         );
 
-        console.log("Payment: PhonePe / UPI QR + COD");
+        console.log("Payment: Razorpay + COD");
+        console.log("Customer authentication: Enabled");
         console.log("Admin authentication: Enabled");
       });
     })

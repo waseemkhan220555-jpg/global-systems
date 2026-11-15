@@ -8,6 +8,9 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Admin from "./pages/Admin";
 
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+
 import {
   Routes,
   Route,
@@ -16,7 +19,11 @@ import {
 
 function App() {
   const location = useLocation();
+
   const isAdminPage = location.pathname === "/admin";
+  const isAuthPage =
+    location.pathname === "/login" ||
+    location.pathname === "/signup";
 
   return (
     <>
@@ -24,13 +31,17 @@ function App() {
 
       {!isAdminPage && <Navbar />}
 
-      <main className={isAdminPage ? "" : "pt-[78px]"}>
+      <main className={isAdminPage || isAuthPage ? "" : "pt-[78px]"}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/services" element={<Service />} />
           <Route path="/products" element={<Product />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+
+          {/* Customer Authentication */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
 
           {/* Admin Dashboard */}
           <Route path="/admin" element={<Admin />} />
